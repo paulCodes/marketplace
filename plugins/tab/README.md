@@ -21,9 +21,9 @@ This plugin provides 6 commands and 3 named agents that form a complete project 
 
 | Agent | Role | Spawned by |
 |-------|------|-----------|
-| `tab:planner` | Decompose work into tasks with plans and acceptance criteria | tab-work, tab-refinement |
-| `tab:qa` | Validate work against plans, find gaps, create qa-findings tasks | tab-work, tab-refinement |
-| `tab:documenter` | Extract knowledge from completed work into Tab KB documents | tab-work |
+| `tab-workflow:planner` | Decompose work into tasks with plans and acceptance criteria | tab-work, tab-refinement |
+| `tab-workflow:qa` | Validate work against plans, find gaps, create qa-findings tasks | tab-work, tab-refinement |
+| `tab-workflow:documenter` | Extract knowledge from completed work into Tab KB documents | tab-work |
 
 ## Prerequisites
 
@@ -37,7 +37,7 @@ Add the marketplace and install the plugin:
 
 ```bash
 claude marketplace add https://github.com/paulCodes/claude-marketplace
-claude plugin install tab
+claude plugin install tab-workflow
 ```
 
 ## Usage

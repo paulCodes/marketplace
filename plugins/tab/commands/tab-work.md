@@ -93,12 +93,12 @@ The main conversation is an **orchestrator**. Heavy work is delegated to sub-age
 
 | Agent | Type | Role | Reads | Writes |
 |-------|------|------|-------|--------|
-| **Planner** | `tab:planner` | Decompose work into tasks with plans and criteria | Tab project, KB documents, codebase | Tab tasks (plan, acceptance_criteria) |
+| **Planner** | `tab-workflow:planner` | Decompose work into tasks with plans and criteria | Tab project, KB documents, codebase | Tab tasks (plan, acceptance_criteria) |
 | **Research** | Explore | Explore codebase and identify affected areas | Tab project, KB documents, codebase | `research.md` |
 | **Implement** | general-purpose | Write code for a specific task | Tab tasks, KB documents, source files | Source code |
 | **Test** | general-purpose | Write and run tests | Changed files, existing tests | Test files |
-| **QA** | `tab:qa` | Validate work against plans and criteria | Tab tasks, codebase, KB documents | Tab tasks (qa-findings) |
-| **Documenter** | `tab:documenter` | Extract knowledge from completed work | Completed tasks, codebase, KB documents | Tab documents |
+| **QA** | `tab-workflow:qa` | Validate work against plans and criteria | Tab tasks, codebase, KB documents | Tab tasks (qa-findings) |
+| **Documenter** | `tab-workflow:documenter` | Extract knowledge from completed work | Completed tasks, codebase, KB documents | Tab documents |
 | **Review** | code-reviewer | Review changed files for code quality | All changed files | Nothing (report only) |
 | **Fix** | general-purpose | Apply fixes from review/QA findings | Review findings, source | Source fixes |
 | **Verify** | general-purpose | Run lint/typecheck/tests | Changed files | Nothing (report only) |
@@ -108,7 +108,7 @@ The main conversation is an **orchestrator**. Heavy work is delegated to sub-age
 - Sub-agents **do not talk to the user** — only the orchestrator does
 - Launch **parallel sub-agents** for independent tasks
 - Pass **KB document IDs** to sub-agents (not full content) — they fetch what they need
-- Use **named agents** (`tab:planner`, `tab:qa`, `tab:documenter`) when spawning specialist sub-agents
+- Use **named agents** (`tab-workflow:planner`, `tab-workflow:qa`, `tab-workflow:documenter`) when spawning specialist sub-agents
 - Update Tab task status as work progresses
 
 ---
@@ -183,7 +183,7 @@ If the design needs to be broken into tasks, spawn the planner agent:
 ```
 Agent(
   description: "Plan tasks for {project_title}",
-  subagent_type: "tab:planner",
+  subagent_type: "tab-workflow:planner",
   prompt: "Project ID: {pid}\n\nWork to decompose: {design_summary}\n\nKnowledgebase document IDs: {doc_ids}\n\nBreak this into actionable tasks with implementation plans and acceptance criteria.",
   run_in_background: true
 )
@@ -351,7 +351,7 @@ For thorough validation beyond code style, spawn the QA agent:
 ```
 Agent(
   description: "QA validation for {project_title}",
-  subagent_type: "tab:qa",
+  subagent_type: "tab-workflow:qa",
   prompt: "Project ID: {pid}\n\nScope: full\n\nKnowledgebase document IDs: {doc_ids}\n\nValidate all completed work against plans and acceptance criteria. Create qa-findings tasks for any issues.",
   run_in_background: true
 )
@@ -478,7 +478,7 @@ After committing, spawn the documenter agent to extract reusable knowledge:
 ```
 Agent(
   description: "Extract knowledge from {project_title}",
-  subagent_type: "tab:documenter",
+  subagent_type: "tab-workflow:documenter",
   prompt: "Project ID: {pid}\n\nTask IDs of completed work: {done_task_ids}\n\nExisting knowledgebase document IDs: {doc_ids}\n\nExtract architectural decisions, patterns, and gotchas from the completed work. Write to the Tab knowledge base and attach documents to the project.",
   run_in_background: true
 )
