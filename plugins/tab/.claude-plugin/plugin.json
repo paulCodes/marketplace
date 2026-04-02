@@ -1,0 +1,11 @@
+{
+  "name": "tab",
+  "version": "1.0.0",
+  "description": "Tab for Projects workflow — brainstorm ideas into designs, implement with sub-agents, verify code health, and collect feedback.",
+  "author": {
+    "name": "Paul Parker",
+    "email": "airete@gmail.com"
+  },
+  "repository": "https://github.com/paulCodes/claude-marketplace",
+  "keywords": ["tab", "projects", "workflow", "brainstorming", "verification"]
+}
