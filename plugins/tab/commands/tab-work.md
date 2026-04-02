@@ -488,6 +488,64 @@ Skip this step if the work was purely mechanical (simple bugfix with no novel pa
 
 ---
 
+## Step 5.6: Documentation health check (non-Jira projects only)
+
+**Skip this step for PlexTrac/Jira projects** — those have their own documentation processes.
+
+For personal projects, check if the implementation changed anything that documentation should reflect:
+
+### What to check
+
+1. **README.md** — does it still accurately describe what the project does?
+   - New commands/features added but not documented?
+   - Install instructions still correct?
+   - Usage examples still valid?
+2. **Tab project design field** — does the design reflect what was actually built?
+   - Implementation diverged from the original design?
+   - New architecture decisions made during implementation?
+3. **Tab KB documents** — are attached documents still accurate?
+   - Fetch with `list_documents({ project_id: "<pid>" })` and check against actual code
+   - Patterns documented that no longer apply?
+   - New patterns established that aren't documented?
+4. **Code comments** — any TODO/FIXME/HACK comments added during implementation that need Tab tasks?
+
+### How to check
+
+Spawn a background agent to audit:
+
+```
+Agent(
+  description: "Docs health check for {project_title}",
+  prompt: "You are checking documentation health for the '{project_title}' project (ID: {pid}).
+
+  This is a personal project (not Jira). Check if documentation needs updating:
+
+  1. Read README.md — does it match the current state of the project?
+  2. Fetch the Tab project design field — does it match what was built?
+  3. Fetch attached KB documents and check if they're still accurate
+  4. Scan for TODO/FIXME/HACK comments in changed files
+  5. Check if new features/commands are documented
+
+  For each issue found, create a Tab task:
+  - category: 'docs'
+  - group_key: 'docs-health'
+  - effort: 'trivial' or 'low'
+
+  If everything is up to date, return 'Docs are current — no updates needed.'",
+  run_in_background: true
+)
+```
+
+### Prompt the user
+
+If the docs agent finds issues, present them:
+
+> "Found {N} documentation updates needed. Want to tackle them now or add them to the backlog?"
+
+If the user says now, fix them before the final handoff. Otherwise, they stay as `todo` tasks.
+
+---
+
 ## Step 6: Handoff (main context)
 
 **Query Tab for final status:**
