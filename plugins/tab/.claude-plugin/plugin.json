@@ -1,5 +1,5 @@
 {
-  "name": "tab",
+  "name": "tab-workflow",
   "version": "1.0.0",
   "description": "Tab for Projects workflow — brainstorm ideas into designs, implement with sub-agents, verify code health, and collect feedback.",
   "author": {
