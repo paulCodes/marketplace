@@ -3,7 +3,7 @@
 # PowerShell version for Windows.
 
 $Today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
-$FeedbackFile = Join-Path $env:USERPROFILE ".claude\tab-feedback-${Today}.jsonl"
+$FeedbackFile = Join-Path $env:USERPROFILE ".claude\tab-feedback\${Today}.jsonl"
 
 if (-not (Test-Path $FeedbackFile)) {
     exit 0

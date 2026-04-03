@@ -4,7 +4,9 @@
 # PowerShell version for Windows.
 
 $Today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
-$FeedbackFile = Join-Path $env:USERPROFILE ".claude\tab-feedback-${Today}.jsonl"
+$FeedbackDir = Join-Path $env:USERPROFILE ".claude\tab-feedback"
+if (-not (Test-Path $FeedbackDir)) { New-Item -ItemType Directory -Path $FeedbackDir -Force | Out-Null }
+$FeedbackFile = Join-Path $FeedbackDir "${Today}.jsonl"
 
 # Read stdin (hook input JSON)
 $Input = $input | Out-String

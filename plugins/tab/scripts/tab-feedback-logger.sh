@@ -4,7 +4,9 @@
 # Appends entries to ~/.claude/tab-feedback.jsonl
 
 TODAY=$(date -u +"%Y-%m-%d")
-FEEDBACK_FILE="$HOME/.claude/tab-feedback-${TODAY}.jsonl"
+FEEDBACK_DIR="$HOME/.claude/tab-feedback"
+mkdir -p "$FEEDBACK_DIR"
+FEEDBACK_FILE="$FEEDBACK_DIR/${TODAY}.jsonl"
 
 # Read stdin (hook input JSON)
 INPUT=$(cat)

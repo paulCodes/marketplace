@@ -188,7 +188,17 @@ Windows: replace `.sh` with `.ps1` and prefix with `powershell -File `.
 
 ### Generate feedback
 
-Run `/tab-feedback` to compile observations into `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md` (dated, never overwrites previous reports). Raw API logs are stored in daily files: `~/.claude/tab-feedback-{YYYY-MM-DD}.jsonl`.
+Run `/tab-feedback` to compile observations. All feedback lives in `~/.claude/tab-feedback/`:
+
+```
+~/.claude/tab-feedback/
+├── 2026-04-03.jsonl          (raw API logs)
+├── 2026-04-03-report.md      (compiled report)
+├── 2026-04-04.jsonl
+└── 2026-04-04-report.md
+```
+
+Dated files, nothing gets overwritten.
 
 ## Architecture
 

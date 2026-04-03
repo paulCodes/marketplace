@@ -15,7 +15,7 @@ Compile Tab for Projects feedback into a structured markdown report that the Tab
 
 ## The Feedback File
 
-Reports are dated: `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md`
+Reports are dated: `~/.claude/tab-feedback/{YYYY-MM-DD}-report.md`
 
 Each run creates a new dated file (never overwrites previous reports). Hand it to the Tab creator and he can create a Tab project from it.
 
@@ -23,14 +23,14 @@ Each run creates a new dated file (never overwrites previous reports). Hand it t
 
 When invoked:
 
-1. **Read raw API logs** from `~/.claude/tab-feedback-{YYYY-MM-DD}.jsonl` (dated files)
+1. **Read raw API logs** from `~/.claude/tab-feedback/{YYYY-MM-DD}.jsonl` (dated files)
    - Check for today's file and recent days' files
    - Count total calls per tool
    - Identify errors and what caused them
    - Note which tools are used most/least
    - **Error attribution warning**: Errors with `request-id` format `req_...` and body `{"type":"error","error":{"type":"api_error"}}` are from the **Anthropic API** (Claude's own backend), NOT from Tab. Tab MCP errors have a different format. Do NOT attribute Anthropic API errors to Tab in the feedback report.
 
-2. **Create today's feedback report** at `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md`
+2. **Create today's feedback report** at `~/.claude/tab-feedback/{YYYY-MM-DD}-report.md`
    - Each day gets its own report — never overwrite previous days
 
 3. **Review the current session** — think about:

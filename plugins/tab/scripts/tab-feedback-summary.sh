@@ -3,7 +3,7 @@
 # remind the user to review them.
 
 TODAY=$(date -u +"%Y-%m-%d")
-FEEDBACK_FILE="$HOME/.claude/tab-feedback-${TODAY}.jsonl"
+FEEDBACK_FILE="$HOME/.claude/tab-feedback/${TODAY}.jsonl"
 
 if [ ! -f "$FEEDBACK_FILE" ]; then
   exit 0
