@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Tab Alpha Testing — Active Feedback Collection
 
-You are alpha testing Tab for Projects. While using any `mcp__tab-for-projects__*` tool or any `tab-*` skill, actively observe and log feedback to `~/.claude/tab-feedback-report.md`.
+You are alpha testing Tab for Projects. While using any `mcp__tab-for-projects__*` tool or any `tab-*` skill, actively observe and log feedback to `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md`.
 
 ## What to watch for
 
@@ -30,12 +30,12 @@ After EVERY Tab MCP tool call, briefly evaluate:
 ```
 Agent(
   description: "Log Tab feedback",
-  prompt: "Append this entry to ~/.claude/tab-feedback-report.md: ...",
+  prompt: "Append this entry to ~/.claude/tab-feedback-report-{YYYY-MM-DD}.md: ...",
   run_in_background: true
 )
 ```
 
-Append to `~/.claude/tab-feedback-report.md`. Use this format for new entries:
+Append to `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md`. Use this format for new entries:
 
 ```
 ### {Short title}
@@ -54,4 +54,4 @@ Only log things that are genuinely useful feedback. "Everything worked fine" is 
 
 ## The deliverable
 
-The user will periodically run `/tab-feedback` to compile the report, or just hand `~/.claude/tab-feedback-report.md` directly to the Tab creator. Keep it clean enough that someone who didn't watch the session can understand each entry.
+The user will periodically run `/tab-feedback` to compile the report, or just hand `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md` directly to the Tab creator. Keep it clean enough that someone who didn't watch the session can understand each entry.

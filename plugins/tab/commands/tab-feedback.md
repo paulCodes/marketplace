@@ -15,9 +15,9 @@ Compile Tab for Projects feedback into a structured markdown report that the Tab
 
 ## The Feedback File
 
-All feedback lives in: `~/.claude/tab-feedback-report.md`
+Reports are dated: `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md`
 
-This file is the deliverable — hand it to the Tab creator and he can create a Tab project from it.
+Each run creates a new dated file (never overwrites previous reports). Hand it to the Tab creator and he can create a Tab project from it.
 
 ## Generating the Report
 
@@ -30,8 +30,8 @@ When invoked:
    - Note which tools are used most/least
    - **Error attribution warning**: Errors with `request-id` format `req_...` and body `{"type":"error","error":{"type":"api_error"}}` are from the **Anthropic API** (Claude's own backend), NOT from Tab. Tab MCP errors have a different format. Do NOT attribute Anthropic API errors to Tab in the feedback report.
 
-2. **Read existing feedback report** from `~/.claude/tab-feedback-report.md` (if exists)
-   - Preserve existing entries — don't overwrite, append new ones
+2. **Create today's feedback report** at `~/.claude/tab-feedback-report-{YYYY-MM-DD}.md`
+   - Each day gets its own report — never overwrite previous days
 
 3. **Review the current session** — think about:
    - What Tab features did we use? What worked well?
