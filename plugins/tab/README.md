@@ -1,102 +1,173 @@
-# Tab for Projects Plugin (v1.1.0)
+# Tab Workflow Plugin (v2.0.0)
 
-A Claude Code plugin that turns [Tab for Projects](https://github.com/4lt7ab/Tab) into a complete project lifecycle manager. One command (`/tab`) handles everything — brainstorming, refinement, implementation, verification, and progress tracking.
+A Claude Code plugin that turns [Tab for Projects](https://github.com/4lt7ab/Tab) into a full project lifecycle manager. One command (`/tab`) routes between brainstorming, refinement, implementation, code review, PR review, and verification, with all state persisted in Tab.
 
-## How the Workflow Works
+This is not a wrapper around `git commit`. It is a multi-agent orchestration system that manages research, planning, parallel implementation, a 5-agent quality gate, finding walk-throughs, deviation detection, crash recovery, and knowledge extraction across your entire project lifecycle.
 
-### The Three-Tier Architecture
+## Three-Tier Architecture
 
 The plugin uses three layers that work together:
 
-| Layer | File | When it's active | What it does |
-|-------|------|-------------------|--------------|
+| Layer | File | When it runs | What it does |
+|-------|------|--------------|--------------|
 | **Rule** | `tab-discipline.md` | Every session (always on) | Enforces Tab-first behavior: load context before work, save incrementally, maintain progress logs |
-| **Router** | `tab.md` (`/tab`) | When you invoke `/tab` | Loads your project, detects what you want to do, routes to the right workflow |
-| **Sub-skills** | `tab-work.md`, etc. | When the router dispatches them | Detailed workflow playbooks for each phase |
+| **Router** | `tab.md` (`/tab`) | When you invoke `/tab` | Loads your project, detects intent, routes to the right workflow |
+| **Sub-skills** | `tab-work.md`, `tab-verify.md`, etc. | When the router dispatches | Detailed workflow playbooks for each phase |
 
-### The Lifecycle
+## Commands
+
+| Command | Description | When to use |
+|---------|-------------|-------------|
+| `/tab` | **Unified entry point.** Detects project and intent, routes automatically. | Always. This is the main command. |
+| `/tab-brainstorming` | Ideas to designs to Tab project (direct access) | Skip the router for brainstorming |
+| `/tab-refinement` | Walk through tasks to ensure they are well-specified | Direct access to refinement |
+| `/tab-work` | Load project, dispatch agents, implement tasks | Direct access to implementation |
+| `/tab-verify` | Lint/typecheck/tests with auto-fix loop and commit gate | Direct access to verification |
+| `/tab-pr-review` | Multi-agent PR review with voice-controlled comment posting | Review PRs with parallel agents |
+| `/tab-feedback` | Compile feedback report for Tab creator | Alpha testing feedback |
+
+### Using `/tab` (recommended)
+
+```
+/tab                              Show project status, ask what to do
+/tab I want to build X            Start brainstorming
+/tab work on doot                 Implement a project
+/tab continue                     Resume where you left off
+/tab verify                       Run checks
+/tab save                         Save progress
+/tab refine                       Review backlog
+```
+
+## The Lifecycle
 
 A project flows through these phases:
 
 ```
-Brainstorm → Refine → Implement → Verify → Review → Commit
-     ↑                                              |
-     └──────── Tab has full state at every step ────┘
+Brainstorm --> Refine --> Implement --> Verify --> Review --> Commit
+     ^                                                  |
+     +------------ Tab has full state at every step ----+
 ```
 
-**1. Brainstorm** (`/tab I have an idea for X`)
+### Brainstorm
+
+`/tab I have an idea for X`
+
 - Collaborative dialogue: one question at a time, multiple choice when possible
-- Creates a draft Tab project IMMEDIATELY (crash recovery — nothing is lost)
+- Creates a draft Tab project immediately (crash recovery from the first minute)
 - Proposes 2-3 approaches with trade-offs
-- Saves KB documents as discoveries happen (not at the end)
+- Saves KB documents as discoveries happen, not at the end
 - Produces: Tab project with goal, requirements, design, and task backlog
 
-**2. Refine** (`/tab refine` or auto-detected when tasks lack detail)
-- Walks through each task with you to ensure it's well-specified
-- Spawns research agents for unknowns (doesn't guess)
+### Refine
+
+`/tab refine` or auto-detected when tasks lack detail
+
+- Walks through each task to ensure it is well-specified
+- Spawns research agents for unknowns instead of guessing
 - Updates Tab tasks in real-time as decisions are made
 - Every task gets: description, implementation plan, acceptance criteria, effort, impact
 
-**3. Implement** (`/tab work on X` or `/tab continue`)
-- Loads project from Tab, creates a branch
-- Dispatches sub-agents in parallel for independent tasks
-- Tracks progress via Tab task statuses (todo → in_progress → done)
-- Maintains a Session Progress Log in Tab (auto-updated after every task)
-- The orchestrator NEVER writes code — always delegates to sub-agents
+### Implement
 
-**4. Verify** (`/tab verify`)
+`/tab work on X` or `/tab continue`
+
+The implementation orchestrator is the core of the plugin. It never writes code itself. Instead, it coordinates sub-agents while tracking all progress in Tab.
+
+**Workflow routing.** A classifier agent reads the project context and recommends one of four workflow variants:
+
+| Variant | When | Quality gate depth |
+|---------|------|--------------------|
+| **Standard** | Multi-file changes, 3+ tasks, cross-module work | 5 parallel review agents |
+| **Lightweight** | Single file/module, 1-2 tasks, config changes | 2-3 agents (code review + smells + test review) |
+| **Thorough** | Security-sensitive, new subsystems, public API changes | Standard + documentarian |
+| **Custom** | Tests-only, refactor with no behavior change, docs-only | Tailored to the scope |
+
+The user can override the recommendation.
+
+**5-agent quality gate.** Before any commit, the plugin runs parallel review agents:
+
+1. **Code Reviewer** validates against CLAUDE.md standards
+2. **Acceptance QA** checks each Tab task's acceptance criteria (PASS/PARTIAL/FAIL with evidence)
+3. **Edge Case QA** probes boundary conditions, null handling, race conditions, error paths
+4. **Code Smells** runs Fowler catalog analysis (skips test files)
+5. **Test Reviewer** catches hollow assertions, over-mocking, and AI-generated test smells (only spawns when tests are in the changeset)
+
+**Dynamic specialist agents.** Additional reviewers spawn automatically when the changeset contains specific artifacts:
+
+| Artifact | Trigger | Focus |
+|----------|---------|-------|
+| Claude/AI skill files | Any SKILL.md or agent definition modified | Trigger accuracy, codebase correctness |
+| Database migrations | Any migration file | Schema safety, rollback plan, data loss risk |
+| CI/CD config | Any workflow/pipeline change | Correctness, security, performance |
+| Docker/infra | Dockerfile, compose files | Security, layer efficiency, env leaks |
+
+**Finding walk-through.** After review agents return, findings are deduplicated, sorted by severity, and presented one at a time. For each finding, you choose: fix, defer, or disagree. Related findings are cross-referenced. Findings covered by another fix are flagged so you can skip them. No batching everything into one wall of text.
+
+**Agent deviation detection.** After each implementation agent returns, the orchestrator compares its output against the Tab task plan. Deviations are reported clearly ("Plan said A, agent did B because reason") and never presented as positive design decisions. You approve or reject.
+
+**Turn limit recovery.** Every implementation and fix agent includes a handoff protocol. When an agent runs low on turns, it stops and returns a structured report (completed, in progress, remaining, files changed, how to continue). The orchestrator re-spawns with that context. No work is lost.
+
+### Verify
+
+`/tab-verify` or automatically after every code change
+
 - Auto-detects project type (TypeScript, Python, Go, etc.)
 - Runs lint, typecheck, and tests
 - Creates Tab tasks for each failure
 - Dispatches fix agents and re-verifies (max 3 cycles)
+- Checks KB for known troubleshooting patterns before dispatching generic fix agents
 
-**5. Review + Commit**
-- Code review is mandatory before commit
-- Review findings become Tab tasks that must be resolved
-- Commit gate checks: all review-findings done, all verification-failures done, all tasks done
-- Never pushes — that's up to you
+**Commit gate mode** (`/tab-verify --commit-gate`): Goes beyond technical checks to verify the full workflow completed correctly.
+
+```
+Commit Gate
+
+Technical:
+- [ ] Lint passes on all changed files
+- [ ] Typecheck passes
+- [ ] Tests pass
+- [ ] No verification-failures tasks remain open
+
+Workflow:
+- [ ] Quality gate ran (review agents were dispatched)
+- [ ] All review-findings tasks are done or deferred
+- [ ] All qa-findings tasks are done or deferred
+- [ ] All implementation tasks marked done in Tab
+- [ ] No unaddressed governance items
+
+Staleness:
+- [ ] Verification ran after the most recent code change
+```
+
+### PR Review
+
+`/tab-pr-review {url}` or `/tab-pr-review` for dashboard
+
+A standalone multi-agent PR review pipeline:
+
+- **Dashboard mode**: shows all open PRs across repos, numbered for quick selection
+- **Review mode**: 5-7 parallel agents analyze the diff (edge case QA, acceptance QA, researcher, code reviewer, code smells, test reviewer, dynamic specialists)
+- **Tab project lookup**: when a Tab project matches the PR, acceptance criteria from Tab tasks are used to verify the code, not just the PR description
+- **Finding walk-through**: same one-at-a-time protocol as the implementation quality gate
+- **Voice-controlled posting**: comments are drafted in a human voice (no AI tells, no em dashes, no "Hey!" openers), reviewed by you, then batch-posted via the GitHub API
+- **Backport detection**: recognizes cherry-picks targeting release branches and offers skip, quick diff, or full review
 
 ### Crash Recovery
 
 The plugin is designed to survive session crashes:
 
-- Draft projects are created at the start of brainstorming (not after approval)
+- Draft projects are created at the start of brainstorming, not after approval
 - Tab is updated after every state change (questions, decisions, task completions)
 - Session Progress Log is updated synchronously before dispatching sub-agents
 - On resume, stale `in_progress` tasks are detected and the user is asked what to do
 
 ### Knowledge Base
 
-Reusable knowledge (architecture patterns, API limitations, conventions, troubleshooting) is saved as Tab documents and attached to projects. KB docs are saved immediately when discoveries happen — not gated on session end or design approval.
-
-## Commands
-
-| Command | Description | When to use |
-|---------|-------------|-------------|
-| `/tab` | **Unified entry point** — detects project and intent, routes automatically | Always. This is the main command. |
-| `/tab-brainstorming` | Ideas → designs → Tab project (direct access) | If you want to skip the router |
-| `/tab-refinement` | Walk through tasks to ensure they're well-specified | Direct access to refinement |
-| `/tab-work` | Load project, dispatch agents, implement tasks | Direct access to implementation |
-| `/tab-verify` | Lint/typecheck/tests → Tab tasks → auto-fix | Direct access to verification |
-| `/tab-feedback` | Compile feedback report for Tab creator | Alpha testing feedback |
-
-### Using `/tab` (recommended)
-
-```
-/tab                              → show project status, ask what to do
-/tab I want to build X            → start brainstorming
-/tab work on doot                 → implement a project
-/tab continue                     → resume where you left off
-/tab verify                       → run checks
-/tab save                         → save progress
-/tab refine                       → review backlog
-```
-
-Command names map to filenames: `tab-work.md` becomes `/tab-work`.
+Reusable knowledge (architecture patterns, API limitations, conventions, troubleshooting) is saved as Tab documents and attached to projects. KB docs are saved immediately when discoveries happen, not gated on session end or design approval. Troubleshooting documents are checked before dispatching fix agents so known issues get resolved faster.
 
 ## Agents
 
-These are spawned by the workflow commands — you don't invoke them directly:
+These are spawned by the workflow commands. You do not invoke them directly.
 
 | Agent | Role | Spawned by |
 |-------|------|-----------|
@@ -104,11 +175,11 @@ These are spawned by the workflow commands — you don't invoke them directly:
 | `qa` | Validate work against plans, find gaps, create qa-findings tasks | tab-work, tab-refinement |
 | `documenter` | Extract knowledge from completed work into Tab KB documents | tab-work |
 
-These are named agents with their own `.md` instruction files. The workflow also spawns general-purpose sub-agents (research, implement, test, fix) using Claude Code's built-in agent types — those are not separate files.
+The workflows also spawn purpose-built agents at runtime: classifier, research, implement, test, code reviewer, acceptance QA, edge case QA, code smells, test reviewer, fix, and verify. These are defined inline in the workflow prompts, not as separate files.
 
 ## Prerequisites
 
-- **[Tab for Projects](https://github.com/4lt7ab/Tab)** MCP server running locally (default: `http://localhost:5069/mcp` — check your Tab config if connection fails)
+- **[Tab for Projects](https://github.com/4lt7ab/Tab)** MCP server running locally (default: `http://localhost:5069/mcp`)
 - **Claude Code** with MCP support
 
 ## Install
@@ -136,11 +207,9 @@ cp ~/workspaces/marketplace/plugins/tab/agents/*.md ~/.claude/agents/
 cp ~/workspaces/marketplace/plugins/tab/rules/*.md ~/.claude/rules/
 ```
 
-## Alpha Testing (optional)
+## Alpha Testing
 
-If you're helping test Tab for Projects, the plugin includes hooks for automatic feedback collection.
-
-> **Note:** The `tab-alpha-testing.md` rule is included in the base install and will observe Tab API interactions in-session. The steps below add **hook scripts** for automated log capture to a JSONL file.
+If you are helping test Tab for Projects, the plugin includes hooks for automatic feedback collection. The `tab-alpha-testing.md` rule observes Tab API interactions in-session. The steps below add hook scripts for automated log capture.
 
 ### Install feedback hooks
 
@@ -192,10 +261,10 @@ Run `/tab-feedback` to compile observations. All feedback lives in `~/.claude/ta
 
 ```
 ~/.claude/tab-feedback/
-├── 2026-04-03.jsonl          (raw API logs)
-├── 2026-04-03-report.md      (compiled report)
-├── 2026-04-04.jsonl
-└── 2026-04-04-report.md
+  2026-04-03.jsonl          (raw API logs)
+  2026-04-03-report.md      (compiled report)
+  2026-04-04.jsonl
+  2026-04-04-report.md
 ```
 
 Dated files, nothing gets overwritten.
@@ -204,28 +273,29 @@ Dated files, nothing gets overwritten.
 
 ```
 marketplace/
-└── plugins/tab/
-    ├── commands/
-    │   ├── tab.md                  ← Unified router (entry point)
-    │   ├── tab-brainstorming.md    ← Brainstorm flow (incremental saves)
-    │   ├── tab-work.md             ← Implementation orchestrator (auto progress saves)
-    │   ├── tab-verify.md           ← Verification + auto-fix loop
-    │   ├── tab-refinement.md       ← Backlog grooming
-    │   └── tab-feedback.md         ← Feedback report compiler
-    ├── agents/
-    │   ├── planner.md              ← Task decomposition
-    │   ├── qa.md                   ← Work validation
-    │   └── documenter.md           ← Knowledge extraction
-    ├── rules/
-    │   ├── tab-discipline.md       ← Always-on Tab-first discipline
-    │   └── tab-alpha-testing.md    ← Feedback collection (optional)
-    └── scripts/
-        ├── tab-feedback-logger.*   ← PostToolUse hook
-        └── tab-feedback-summary.*  ← Stop hook
+  plugins/tab/
+    commands/
+      tab.md                  Unified router (entry point)
+      tab-brainstorming.md    Brainstorm flow (incremental saves)
+      tab-work.md             Implementation orchestrator (workflow routing, quality gate)
+      tab-verify.md           Verification + commit gate + auto-fix loop
+      tab-refinement.md       Backlog grooming
+      tab-pr-review.md        Multi-agent PR review with voice-controlled posting
+      tab-feedback.md         Feedback report compiler
+    agents/
+      planner.md              Task decomposition
+      qa.md                   Work validation
+      documenter.md           Knowledge extraction
+    rules/
+      tab-discipline.md       Always-on Tab-first discipline
+      tab-alpha-testing.md    Feedback collection (optional)
+    scripts/
+      tab-feedback-logger.*   PostToolUse hook
+      tab-feedback-summary.*  Stop hook
 ```
 
 ## Credits
 
 Built on [Tab for Projects](https://github.com/4lt7ab/Tab) by [@4lt7ab](https://github.com/4lt7ab).
 
-Skill architecture inspired by [Everything Claude Code](https://github.com/affaan-m/everything-claude-code) patterns (three-tier: rules → skills → agents).
+Skill architecture inspired by [Everything Claude Code](https://github.com/affaan-m/everything-claude-code) patterns (three-tier: rules, skills, agents).

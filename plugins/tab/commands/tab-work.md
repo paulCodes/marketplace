@@ -5,45 +5,39 @@ description: "Tab project workflow: load a Tab project, research codebase, plan 
 
 # Tab Work
 
-Complete a **Tab project** using **sub-agents to preserve main context**. The main conversation is an **orchestrator** — it holds the plan, delegates heavy work to sub-agents, tracks progress in Tab, and gets back summaries.
+Complete a **Tab project** using **sub-agents to preserve main context**. The main conversation is an **orchestrator**. It holds the plan, delegates heavy work to sub-agents, tracks progress in Tab, and gets back summaries.
 
 ## When this skill applies
 
 - User wants to **implement**, **tackle**, or **work on** a Tab project
 - User references a project by name (e.g. "work on doot", "implement the doot tasks")
-- User says **"save our work"** / **"save progress"** → update Tab project + progress notes
+- User says **"save our work"** / **"save progress"** --> update Tab project + progress notes
 - **Triggers**: "work on {project}", "tackle {project}", "implement {project} tasks", "do tab project {name}", "continue {project}"
 
 ## Project Types
 
-Detect the project type from the Tab project title — if it starts with a Jira key (e.g. `IO-2097:`), it's a PlexTrac project.
-
-| | PlexTrac | Personal |
-|---|---------|----------|
-| **Detect by** | Title starts with Jira key (e.g. `IO-2097:`) | No Jira key in title |
-| **Workspace** | `~/workspaces/plextrac/{repo}` | `~/workspaces/{project-slug}` |
-| **Notes** | `~/workspaces/plextrac/notes/{TICKET-KEY}/` | `{project-dir}/notes/` |
-| **Branch** | `{TICKET-KEY}-{kebab}` | `{project-slug}-{kebab}` |
-| **Commit** | `{TICKET-KEY}: description` | Short descriptive message |
-| **Standards** | PlexTrac CLAUDE.md for target repo | Language conventions |
-| **Verification** | `/verify` (repo-specific) | `/tab-verify` (auto-detect) |
-| **PR template** | PlexTrac `.github/PULL_REQUEST_TEMPLATE.md` | None required |
-| **Never push** | Yes — user pushes | Yes — user pushes |
+| | Personal |
+|---|----------|
+| **Workspace** | `~/workspaces/{project-slug}` |
+| **Notes** | `{project-dir}/notes/` |
+| **Branch** | `{project-slug}-{kebab}` |
+| **Commit** | Short descriptive message |
+| **Standards** | Language conventions + CLAUDE.md |
+| **Verification** | `/tab-verify` (auto-detect) |
+| **Never push** | Yes, user pushes |
 
 ---
 
 ## Tab as Source of Truth
 
-Tab replaces both Jira (ticket source) and local spec files:
-
-| Concept | plextrac-work (Jira) | tab-work (Tab) |
-|---------|---------------------|----------------|
-| Ticket/project | Jira issue | Tab project (goal, requirements, design) |
-| Plan | `notes/{KEY}/plan.md` | Tab tasks (all fields populated) |
-| Task tracking | Internal TaskCreate/TaskUpdate | Tab task status (todo → in_progress → done) |
-| Research notes | `notes/{KEY}/research.md` | Local notes + Tab project design field |
-| Progress log | `notes/{KEY}/progress.md` | Local notes + Tab task statuses |
-| Reference docs | `reference/*.md` in plugins | Tab documents (shared KB, attached to projects) |
+| Concept | Tab |
+|---------|-----|
+| Project | Tab project (goal, requirements, design) |
+| Plan | Tab tasks (all fields populated) |
+| Task tracking | Tab task status (todo --> in_progress --> done) |
+| Research notes | Local notes + Tab project design field |
+| Progress log | Tab "Session Progress Log" document + local notes |
+| Reference docs | Tab documents (shared KB, attached to projects) |
 
 ### Notes folder
 
@@ -55,15 +49,40 @@ Each project still gets a local folder for research and progress:
 | `research.md` | Codebase findings, approaches, tradeoffs | Step 1 (research sub-agent) |
 | `progress.md` | Running journal of what was done | "Save our work" trigger |
 
-The **plan lives in Tab tasks** — no separate `plan.md` needed.
+The **plan lives in Tab tasks**, no separate `plan.md` needed.
 
 ---
 
-## Task Completeness — REQUIRED
+## Orchestrator Discipline
 
-**GATE: ALL fields must be populated at task creation time — not backfilled later.** This applies to every task, including review findings, branch creation, and PR tasks. Done tasks serve as reference for future projects, so they need complete `plan` and `implementation` fields too.
+Hard rules. No exceptions.
 
-**For done tasks:** `implementation` should include links (PR URLs, branch names) and a summary of what was built. `plan` should capture the approach and key decisions so future projects can reference the pattern.
+- **NEVER** read source code files (.py, .ts, .tsx, .js, .lua, etc.). Only read notes, CLAUDE.md, git state.
+- **NEVER** use Edit, Write, or Bash to create or modify source code or tests.
+- **NEVER** run tests, linters, or typecheckers directly. Delegate to agents or `/tab-verify`.
+- **NEVER** do agent work when agents fail. Debug the issue and re-spawn instead.
+- **NEVER** present agent deviations as positive design decisions without user approval.
+- **NEVER** skip ceremony gates ("it's a small change"). Use a lightweight workflow instead.
+
+**What the orchestrator CAN read/write:**
+- Notes folder (`{project-dir}/notes/*`)
+- CLAUDE.md files (for context on conventions)
+- Git state (via Bash: `git status`, `git branch`, `git log`)
+- Agent output summaries
+- Tab project data (via MCP)
+
+**The orchestrator's value is coordination, not implementation.** Every time it reads source code or writes code, it pollutes context with details it does not need, bypasses quality gates, and produces unreviewed output.
+
+**When agents fail:**
+- Agent runs out of turns: re-spawn with handoff report. Do NOT pick up the task.
+- Agent produces incomplete results: send a follow-up or re-spawn with clearer instructions.
+- Agent errors out: report to the user and ask how to proceed.
+
+---
+
+## Task Completeness -- REQUIRED
+
+**GATE: ALL fields must be populated at task creation time, not backfilled later.**
 
 Every Tab task MUST have these fields:
 
@@ -79,6 +98,8 @@ Every Tab task MUST have these fields:
 | **group_key** | Yes | Logical grouping, max 32 chars (e.g. "setup", "core", "testing") |
 | **plan** | Optional | High-level approach if different from implementation details |
 
+**For done tasks:** `implementation` should include links (PR URLs, branch names) and a summary of what was built. `plan` should capture the approach and key decisions so future projects can reference the pattern.
+
 **Before Step 4 begins, the orchestrator MUST:**
 1. List all `todo` tasks for the project
 2. Check each task has `implementation` and `acceptance_criteria` populated
@@ -89,16 +110,16 @@ Every Tab task MUST have these fields:
 
 ## Automatic Session Progress Saves (applies to ALL steps)
 
-Maintain a "Session Progress Log" Tab document for the active project. This section applies throughout the entire workflow — not just during Step 4.
+Maintain a "Session Progress Log" Tab document for the active project. This section applies throughout the entire workflow.
 
 **Initialization (synchronous, do once at session start):**
 Call `mcp__tab-for-projects__list_documents({ project_id: "<pid>" })` and look for a document titled "Session Progress Log". If none exists, create one synchronously with `create_document` and store the returned ID.
 
 **Save triggers:**
-- **After each task marked done** — append what was completed (background agent)
-- **Before dispatching sub-agents** — log what's about to happen. **This save MUST be synchronous** (crash recovery point).
-- **After sub-agents return** — log results and decisions (background agent)
-- **On any blocker or significant decision** — log context for future sessions (background agent)
+- **After each task marked done** -- append what was completed (background agent)
+- **Before dispatching sub-agents** -- log what is about to happen. **This save MUST be synchronous** (crash recovery point).
+- **After sub-agents return** -- log results and decisions (background agent)
+- **On any blocker or significant decision** -- log context for future sessions (background agent)
 - **Do not dispatch two progress-save agents concurrently.** Write a single combined entry after batches.
 
 ---
@@ -107,25 +128,45 @@ Call `mcp__tab-for-projects__list_documents({ project_id: "<pid>" })` and look f
 
 The main conversation is an **orchestrator**. Heavy work is delegated to sub-agents.
 
-| Agent | Type | Role | Reads | Writes |
-|-------|------|------|-------|--------|
-| **Planner** | `tab-workflow:planner` | Decompose work into tasks with plans and criteria | Tab project, KB documents, codebase | Tab tasks (plan, acceptance_criteria) |
-| **Research** | Explore | Explore codebase and identify affected areas | Tab project, KB documents, codebase | `research.md` |
-| **Implement** | general-purpose | Write code for a specific task | Tab tasks, KB documents, source files | Source code |
-| **Test** | general-purpose | Write and run tests | Changed files, existing tests | Test files |
-| **QA** | `tab-workflow:qa` | Validate work against plans and criteria | Tab tasks, codebase, KB documents | Tab tasks (qa-findings) |
-| **Documenter** | `tab-workflow:documenter` | Extract knowledge from completed work | Completed tasks, codebase, KB documents | Tab documents |
-| **Review** | code-reviewer | Review changed files for code quality | All changed files | Nothing (report only) |
-| **Fix** | general-purpose | Apply fixes from review/QA findings | Review findings, source | Source fixes |
-| **Verify** | general-purpose | Run lint/typecheck/tests | Changed files | Nothing (report only) |
+| Agent | Role | Reads | Writes |
+|-------|------|-------|--------|
+| **Classifier** | Recommend workflow variant | Tab project data | Nothing (report only) |
+| **Research** | Explore codebase, identify affected areas | Tab project, KB docs, codebase | `research.md` |
+| **Planner** | Decompose work into tasks with plans and criteria | Tab project, KB docs, codebase | Tab tasks |
+| **Implement** | Write code for a specific task | Tab tasks, KB docs, source files | Source code |
+| **Test** | Write and run tests | Changed files, existing tests | Test files |
+| **Code Reviewer** | Review against CLAUDE.md standards | All changed files | Nothing (report only) |
+| **Acceptance QA** | Validate against acceptance criteria | Tab tasks, changed files | Nothing (report only) |
+| **Edge Case QA** | Boundary conditions, error paths, race conditions | Changed files | Nothing (report only) |
+| **Code Smells** | Fowler catalog smells, maintainability | Changed files (skips tests) | Nothing (report only) |
+| **Test Reviewer** | Test quality, hollow assertions, over-mocking | Test files only | Nothing (report only) |
+| **Documentarian** | Extract knowledge, update docs | Completed tasks, codebase | Tab documents |
+| **Fix** | Apply fixes from review/QA findings | Review findings, source | Source fixes |
+| **Verify** | Run lint/typecheck/tests | Changed files | Nothing (report only) |
 
 ### Rules for sub-agents
 - Each gets a **self-contained prompt** with everything it needs
-- Sub-agents **do not talk to the user** — only the orchestrator does
+- Sub-agents **do not talk to the user**, only the orchestrator does
 - Launch **parallel sub-agents** for independent tasks
-- Pass **KB document IDs** to sub-agents (not full content) — they fetch what they need
-- Use **named agents** (`tab-workflow:planner`, `tab-workflow:qa`, `tab-workflow:documenter`) when spawning specialist sub-agents
+- Pass **KB document IDs** to sub-agents (not full content), they fetch what they need
 - Update Tab task status as work progresses
+
+### Turn limit recovery
+
+Add this note to every implementation/fix agent prompt:
+
+> **Turn limit recovery:** When running low on turns (below ~20 remaining), stop and return a structured handoff report instead of trying to squeeze in more work.
+>
+> Handoff report format:
+> - **Completed:** what is done
+> - **In progress:** current state of unfinished work
+> - **Remaining:** what still needs to happen
+> - **Files changed:** list with one-line descriptions
+> - **How to continue:** specific instructions for the next spawn (exact file, function, error, next step)
+>
+> The "how to continue" must be specific enough for the next spawn to pick up without re-reading the codebase.
+
+The orchestrator re-spawns with the handoff report as context and remaining tasks only.
 
 ---
 
@@ -134,8 +175,8 @@ The main conversation is an **orchestrator**. Heavy work is delegated to sub-age
 1. If user gives a project name, search with `mcp__tab-for-projects__list_projects`
 2. Load the project (goal, requirements, design)
 3. Load all tasks with `mcp__tab-for-projects__list_tasks` (filter by project_id)
-4. **Load attached documents** with `mcp__tab-for-projects__list_documents({ project_id: "<pid>" })`, then `get_document` for each — these are the project's knowledge base
-5. Show the user a summary: project goal, task count by status, what's todo, attached documents
+4. **Load attached documents** with `mcp__tab-for-projects__list_documents({ project_id: "<pid>" })`, then `get_document` for each
+5. Show the user a summary: project goal, task count by status, what is todo, attached documents
 
 **Resuming a previous session:**
 - Check for tasks stuck in `in_progress` status (stale from a prior session)
@@ -146,9 +187,46 @@ If no Tab project exists yet, suggest running the **tab-brainstorming** skill fi
 
 ---
 
+## Step 0.5: Route Workflow (classifier agent)
+
+Spawn a **1-turn haiku classifier agent** that reads the project goal, requirements, design, and task list. It returns a workflow recommendation.
+
+```
+You are a workflow classifier. Read the project context below and recommend a workflow variant.
+
+Project goal: {goal}
+Requirements: {requirements}
+Design: {design}
+Task count: {count}
+Task titles: {titles}
+
+Return EXACTLY this format:
+
+WORKFLOW PLAN
+
+Workflow: standard | lightweight | thorough | custom
+Rationale: {1-3 sentences}
+Skipped: {what would be skipped and why, if any}
+Flags: {risks or special considerations}
+
+Classification signals:
+- standard: multi-file change, 3+ tasks, database/API work, async code, cross-module
+- lightweight: single file/module, 1-2 tasks, additive-only, config changes
+- thorough: security-sensitive, new subsystem, public API changes
+- custom: tests-only, refactor with no behavior change, docs-only
+
+If uncertain, default to standard. A false "thorough" is better than a false "lightweight."
+```
+
+**Show the recommendation to the user.** They can override the workflow choice.
+
+The workflow choice affects Step 4c (quality gate depth).
+
+---
+
 ## Step 1: Research (sub-agent)
 
-- **Check KB documents first**: Search `mcp__tab-for-projects__list_documents` for documents tagged with relevant domains (e.g. `integration`, `architecture`). Load and pass to the research sub-agent as pre-existing context.
+- **Check KB documents first**: Search `mcp__tab-for-projects__list_documents` for documents tagged with relevant domains. Load and pass to the research sub-agent as pre-existing context.
 - **Check notes first**: If `notes/research.md` exists in the project dir, read it and skip to Step 2.
 - **Otherwise**: Launch a **Research sub-agent** (`subagent_type: "Explore"`):
 
@@ -165,13 +243,12 @@ Your job:
 1. Explore the codebase to understand affected areas
 2. Read affected files, trace call paths, understand current behavior
 3. Identify touch points, risks, and potential approaches
-4. Write findings to {project_dir}/notes/research.md
-5. Return a 2-3 paragraph summary
+4. Check for nested CLAUDE.md files in directories you explore, note their presence/absence
+5. Write findings to {project_dir}/notes/research.md
+6. Return a 2-3 paragraph summary
 ```
 
-**After research completes — sync to Tab:**
-
-Append the research summary to the Tab project's `design` field so it's available cross-session:
+**After research completes, sync to Tab:**
 
 ```
 mcp__tab-for-projects__update_project({
@@ -192,52 +269,7 @@ mcp__tab-for-projects__update_project({
 - **Tasks exist but missing fields**: Fill in missing fields (implementation, acceptance_criteria, effort, impact, category, group_key)
 - **No tasks**: Use **tab-brainstorming** skill to create them, or work with user to break the design into tasks
 
-**Spawn planner agent for task decomposition:**
-
-If the design needs to be broken into tasks, spawn the planner agent:
-
-```
-Agent(
-  description: "Plan tasks for {project_title}",
-  subagent_type: "tab-workflow:planner",
-  prompt: "Project ID: {pid}\n\nWork to decompose: {design_summary}\n\nKnowledgebase document IDs: {doc_ids}\n\nBreak this into actionable tasks with implementation plans and acceptance criteria.",
-  run_in_background: true
-)
-```
-
-**When creating or updating tasks, ALWAYS populate ALL fields:**
-```
-mcp__tab-for-projects__create_task({
-  items: [{
-    project_id: "<pid>",
-    title: "Imperative description of what to do",
-    description: "Full context of what needs to happen and why",
-    implementation: "Exact steps:\n1. Create file X\n2. Add function Y with signature Z\n```python\ndef example():\n    pass\n```",
-    acceptance_criteria: "- Specific check 1\n- Specific check 2\n- Command to verify",
-    category: "feature",
-    effort: "low",
-    impact: "high",
-    group_key: "core"
-  }]
-})
-```
-
-**Ensure test tasks exist.** If the project doesn't already have tasks with `category: "test"`, create them:
-```
-mcp__tab-for-projects__create_task({
-  items: [{
-    project_id: "<pid>",
-    title: "Write tests for {feature}",
-    description: "Cover happy path, edge cases, error paths",
-    implementation: "Test files to create, test cases to cover, frameworks to use",
-    acceptance_criteria: "- All tests pass\n- Coverage meets project standard",
-    category: "test",
-    effort: "medium",
-    impact: "high",
-    group_key: "testing"
-  }]
-})
-```
+**Ensure test tasks exist.** If the project has no tasks with `category: "test"`, create them.
 
 ---
 
@@ -254,7 +286,7 @@ mcp__tab-for-projects__create_task({
 
 ### Pre-flight: Task Completeness Check
 
-**Before launching any sub-agent, verify ALL tasks pass the completeness gate:**
+Before launching any sub-agent, verify ALL tasks pass the completeness gate:
 
 ```
 mcp__tab-for-projects__list_tasks({ project_id: "<pid>", status: "todo" })
@@ -278,24 +310,11 @@ mcp__tab-for-projects__update_task({
 })
 ```
 
-*See "Automatic Session Progress Saves" section above — save triggers apply here during execution.*
+### Design Sync
 
-### Design Sync — Keep project design field current
+When a task with `category: "design"` is marked done, update the project's `design` field to reflect the decision. This prevents stale designs from misleading future sessions.
 
-**When a task with `category: "design"` is marked done, update the project's `design` field to reflect the decision.** Design decisions made during implementation can cause the project-level design to drift from reality. Sync it immediately:
-
-```
-mcp__tab-for-projects__update_project({
-  items: [{
-    id: "<pid>",
-    design: "{updated design incorporating the new decision}"
-  }]
-})
-```
-
-This prevents stale designs from misleading future sessions that load the project.
-
-### Verification Loop — use tab-verify
+### Verification Loop
 
 **Every time code changes, invoke the `tab-verify` skill.** It will:
 1. Auto-detect project type and run appropriate checks (lint, typecheck, tests)
@@ -304,7 +323,7 @@ This prevents stale designs from misleading future sessions that load the projec
 4. Re-verify until clean (max 3 cycles)
 
 ```
-Implement → /tab-verify → Test → /tab-verify → Review → Fix → /tab-verify → Commit
+Implement --> /tab-verify --> Test --> /tab-verify --> Review --> Fix --> /tab-verify --> Commit
 ```
 
 ### 4a. Implementation sub-agent(s)
@@ -324,12 +343,28 @@ Reference documents:
 Working directory: {project_dir}
 Branch: {branch_name}
 
+CLAUDE.md maintenance: When working in a directory, check if a CLAUDE.md exists at that level.
+- If none exists: create a lean one (purpose, key files, patterns, dependencies)
+- If one exists: update it if the work meaningfully changes the module's shape
+- Skip for trivial changes (typos, renames)
+- Keep it lean. Only non-obvious things that help future agents.
+
+Turn limit recovery: If running low on turns (below ~20 remaining), stop and return a handoff report:
+- Completed / In progress / Remaining / Files changed / How to continue
+- "How to continue" must name the exact file, function, and next step.
+
 Implement the changes. When done, return:
 - List of files changed with one-line description each
+- Any CLAUDE.md files created or updated (and why)
 - Any questions or ambiguities
+- Any deviations from the plan (and why)
 ```
 
-**→ Run `/tab-verify`. Mark task `done` in Tab if verification passes.**
+**After each implementation agent returns:**
+
+1. **Deviation detection.** Compare the agent's output against the Tab task plan. For each task the agent worked on, check: did it follow the implementation plan? If the agent deviated, report it clearly: "Plan said [A], agent did [B] because [reason]." NEVER present deviations positively. Ask the user to approve or fix. This matters because deviations can break assumptions other tasks depend on.
+
+2. **Run `/tab-verify`.** Mark task `done` in Tab if verification passes.
 
 ### 4b. Test sub-agent
 
@@ -343,24 +378,64 @@ Tasks implemented: {task titles}
 
 Write tests covering: happy path, edge cases, error paths.
 Run tests and report pass/fail.
+
+Turn limit recovery: If running low on turns, return a handoff report
+with Completed / In progress / Remaining / Files changed / How to continue.
 ```
 
-**→ Run verification. Mark test task `done` in Tab.**
+**Run verification. Mark test task `done` in Tab.**
 
-### 4c. Code review sub-agent — MANDATORY
+### 4c. Quality Gate -- MANDATORY
 
 **GATE: MUST run before commit. Even for small changes.**
 
-Use `subagent_type: "superpowers:code-reviewer"` or the appropriate reviewer agent.
+The workflow variant (from Step 0.5) determines the quality gate depth.
 
-```
-Review the changes for the {project_title} project on branch {branch}.
+#### Standard workflow -- 5 parallel review agents:
 
-Return only actionable findings:
-- File and line number
-- What's wrong
-- Suggested fix
-```
+1. **Code Reviewer** (sonnet) -- reviews against CLAUDE.md standards, returns file:line findings with severity (critical/high/medium/low)
+2. **Acceptance QA** (haiku) -- reads each Tab task's acceptance_criteria, returns per-criterion PASS/PARTIAL/FAIL with evidence
+3. **Edge Case QA** (sonnet) -- boundary conditions, null handling, error paths, race conditions, async edge cases. Risk levels: critical/high/medium/low
+4. **Code Smells** (sonnet) -- Fowler catalog smells (long methods, feature envy, data clumps, coupling). Skips test files. Severity: high/medium/low
+5. **Test Reviewer** (sonnet) -- **only spawns if changeset includes test files.** Catches hollow assertions, over-mocking, AI-generated test smells (mirror structure, narration comments, verbose setup, defensive over-assertion)
+
+#### Lightweight workflow -- 2-3 agents:
+
+- Code Reviewer + Code Smells + Test Reviewer (if tests present)
+
+#### Thorough workflow -- standard + extras:
+
+- All 5 standard agents + Documentarian agent
+
+#### Dynamic specialist agents (conditional):
+
+Spawn additional reviewers when the changeset contains specific artifact types:
+
+| Artifact | Trigger | Agent Focus |
+|----------|---------|-------------|
+| Claude/AI skill files | Any SKILL.md or agent def modified | Trigger accuracy, correctness vs codebase |
+| Database migrations | Any migration file | Schema safety, rollback plan, data loss risk |
+| CI/CD config | Any workflow/pipeline change | Correctness, security, performance |
+| Docker/infra | Dockerfile, compose files | Security, layer efficiency, env leaks |
+
+These spawn in parallel alongside the standard/lightweight agents.
+
+**After all agents return:**
+1. Deduplicate findings at the same file:line (keep higher severity)
+2. Sort: critical > high > medium > low
+3. Consolidate into a single findings list
+
+### 4c-walk. Finding Walk-Through -- MANDATORY
+
+After consolidating findings, walk through them **one at a time**. Never batch all findings into one question.
+
+For each finding:
+1. Present it individually: number, severity, file:line, description, which agent found it
+2. Ask: **"Fix, defer, or disagree?"**
+3. If a finding is related to a previous one, cross-reference it
+4. If a finding would be covered by another's fix, note that and offer to skip
+
+After the walk-through, present the final list of findings the user chose to fix.
 
 ### 4c-alt. QA agent (for thorough validation)
 
@@ -377,9 +452,9 @@ Agent(
 
 QA creates tasks with `group_key: "qa-findings"`. These must be resolved before commit (same gate as review-findings).
 
-### 4c-post. Orchestrator: Create Tab tasks from review findings
+### 4c-post. Create Tab tasks from findings
 
-**When the review sub-agent returns findings, the orchestrator MUST create Tab tasks for each finding:**
+When the review agents return findings that the user chose to fix, the orchestrator creates Tab tasks for each:
 
 ```
 mcp__tab-for-projects__create_task({
@@ -387,9 +462,8 @@ mcp__tab-for-projects__create_task({
     project_id: "<pid>",
     title: "Fix: {short description of finding}",
     description: "**File:** {file}:{line}\n**Issue:** {what's wrong}\n**Suggested fix:** {fix}",
-    plan: "1. Read the affected file\n2. Apply the suggested fix\n3. Re-verify ESLint + typecheck",
     implementation: "File: {file}:{line}\nChange: {description of what to change}",
-    acceptance_criteria: "- Finding resolved\n- ESLint + typecheck clean after fix",
+    acceptance_criteria: "- Finding resolved\n- Verification clean after fix",
     category: "bugfix",
     effort: "trivial",
     impact: "medium",
@@ -398,15 +472,14 @@ mcp__tab-for-projects__create_task({
 })
 ```
 
-If the review returns **no findings**, create a single task to record a clean review:
+If the review returns **no findings**, create a single task recording a clean review:
 ```
 mcp__tab-for-projects__create_task({
   items: [{
     project_id: "<pid>",
     title: "Code review: passed clean",
     description: "No actionable findings from code review",
-    plan: "Run code-reviewer sub-agent on all changed files",
-    implementation: "Ran {reviewer_type} on {files}. No actionable findings.",
+    implementation: "Ran quality gate on all changed files. No actionable findings.",
     acceptance_criteria: "- Code review ran on all changed files\n- No findings returned",
     category: "chore",
     effort: "trivial",
@@ -426,10 +499,13 @@ Fix these code review findings for the {project_title} project:
 {findings from Tab tasks with group_key "review-findings"}
 
 Fix each finding. Return list of fixes applied.
+
+Turn limit recovery: If running low on turns, return a handoff report
+with Completed / In progress / Remaining / Files changed / How to continue.
 ```
 
-**→ Run verification.**
-**→ Mark fixed tasks as `done` in Tab. Any deferred findings stay as `todo`.**
+**Run verification.**
+**Mark fixed tasks as `done` in Tab. Any deferred findings stay as `todo`.**
 
 ### 4e. Verification sub-agent
 
@@ -437,53 +513,18 @@ Fix each finding. Return list of fixes applied.
 Verify {project_title} changes on branch {branch}.
 
 Run project checks and report pass/fail for each.
-Do NOT fix anything — just report.
+Do NOT fix anything, just report.
 ```
 
 ---
 
 ## Step 5: Commit (main context)
 
-**GATE: Do NOT commit unless ALL of these are true:**
-1. Code review ran and findings were created as Tab tasks (group_key: "review-findings")
-2. All review-findings tasks are `done` (fixed) or explicitly deferred by the user
-3. All qa-findings tasks are `done` (fixed) or explicitly deferred by the user
-4. All verification-failures tasks are `done`
-5. Verification passed after most recent code change
-6. All implemented Tab tasks are marked `done`
+**Run the full commit gate:** Invoke `/tab-verify --commit-gate` for the project. This checks both technical (lint, typecheck, tests) and workflow (review findings resolved, QA findings resolved, all tasks done, no governance items) gates in one pass.
 
-**Pre-commit Tab check:**
-```
-# Check for unresolved review findings
-mcp__tab-for-projects__list_tasks({
-  project_id: "<pid>",
-  group_key: "review-findings",
-  status: "todo"
-})
+If the commit gate fails, fix the issues first. The user can explicitly defer workflow items, but technical failures must be resolved.
 
-# Check for unresolved QA findings
-mcp__tab-for-projects__list_tasks({
-  project_id: "<pid>",
-  group_key: "qa-findings",
-  status: "todo"
-})
-
-# Check for unresolved verification failures
-mcp__tab-for-projects__list_tasks({
-  project_id: "<pid>",
-  group_key: "verification-failures",
-  status: "todo"
-})
-
-# Check all implementation tasks are done
-mcp__tab-for-projects__list_tasks({
-  project_id: "<pid>",
-  status: "in_progress"
-})
-```
-
-If any remain unresolved, they must be fixed or the user must explicitly approve deferring them.
-
+Once the gate passes:
 - Commit message: short descriptive message
 - **Never run `git push`.** Remind user: "Branch is committed; push when ready."
 
@@ -502,65 +543,22 @@ Agent(
 )
 ```
 
-Skip this step if the work was purely mechanical (simple bugfix with no novel patterns). The documenter agent will decide what's worth documenting.
+Skip this step if the work was purely mechanical (simple bugfix with no novel patterns).
 
 ---
 
-## Step 5.6: Documentation health check (non-Jira projects only)
+## Step 5.6: Documentation health check
 
-**Skip this step for PlexTrac/Jira projects** — those have their own documentation processes.
+Check if the implementation changed anything that documentation should reflect:
 
-For personal projects, check if the implementation changed anything that documentation should reflect:
+1. **README.md** -- still accurate? New commands/features documented? Install instructions correct?
+2. **Tab project design field** -- reflects what was actually built?
+3. **Tab KB documents** -- attached documents still accurate? New patterns established that are not documented?
+4. **Code comments** -- any TODO/FIXME/HACK comments added that need Tab tasks?
 
-### What to check
-
-1. **README.md** — does it still accurately describe what the project does?
-   - New commands/features added but not documented?
-   - Install instructions still correct?
-   - Usage examples still valid?
-2. **Tab project design field** — does the design reflect what was actually built?
-   - Implementation diverged from the original design?
-   - New architecture decisions made during implementation?
-3. **Tab KB documents** — are attached documents still accurate?
-   - Fetch with `list_documents({ project_id: "<pid>" })` and check against actual code
-   - Patterns documented that no longer apply?
-   - New patterns established that aren't documented?
-4. **Code comments** — any TODO/FIXME/HACK comments added during implementation that need Tab tasks?
-
-### How to check
-
-Spawn a background agent to audit:
-
-```
-Agent(
-  description: "Docs health check for {project_title}",
-  prompt: "You are checking documentation health for the '{project_title}' project (ID: {pid}).
-
-  This is a personal project (not Jira). Check if documentation needs updating:
-
-  1. Read README.md — does it match the current state of the project?
-  2. Fetch the Tab project design field — does it match what was built?
-  3. Fetch attached KB documents and check if they're still accurate
-  4. Scan for TODO/FIXME/HACK comments in changed files
-  5. Check if new features/commands are documented
-
-  For each issue found, create a Tab task:
-  - category: 'docs'
-  - group_key: 'docs-health'
-  - effort: 'trivial' or 'low'
-
-  If everything is up to date, return 'Docs are current — no updates needed.'",
-  run_in_background: true
-)
-```
-
-### Prompt the user
-
-If the docs agent finds issues, present them:
+Spawn a background agent to audit. If it finds issues, present them:
 
 > "Found {N} documentation updates needed. Want to tackle them now or add them to the backlog?"
-
-If the user says now, fix them before the final handoff. Otherwise, they stay as `todo` tasks.
 
 ---
 
@@ -596,13 +594,8 @@ mcp__tab-for-projects__update_project({
 
 When the user says **"save our work"**, **"save progress"**, etc.:
 
-1. **Update Tab task statuses** to reflect current state (any in-flight work → keep `in_progress`)
-2. **Update Tab project** design field if design evolved during the session:
-   ```
-   mcp__tab-for-projects__update_project({
-     items: [{ id: "<pid>", design: "{updated design}" }]
-   })
-   ```
+1. **Update Tab task statuses** to reflect current state (any in-flight work stays `in_progress`)
+2. **Update Tab project** design field if design evolved during the session
 3. **Back up Tab database** to Google Drive:
    ```
    ~/.local/bin/tab-db-backup.sh
@@ -616,109 +609,51 @@ When the user says **"save our work"**, **"save progress"**, etc.:
 **Can parallelize:**
 - Independent Tab tasks (different group_keys, no dependencies)
 - Tests for completed code while implementing next task
+- All quality gate agents (by design)
 
 **Must be sequential:**
-- Research → Plan → Branch → Implement → Verify → Test → Verify → Review → Fix → Verify → Commit
+- Research --> Plan --> Branch --> Implement --> Verify --> Test --> Verify --> Review --> Walk-through --> Fix --> Verify --> Commit
 
 ---
 
 ## Tab MCP Quick Reference
 
 ```python
-# List projects
+# Projects
 mcp__tab-for-projects__list_projects()
-
-# Get specific project
 mcp__tab-for-projects__list_projects({ id: "<project_id>" })
-
-# List tasks for a project
-mcp__tab-for-projects__list_tasks({ project_id: "<id>" })
-
-# Filter tasks
-mcp__tab-for-projects__list_tasks({ project_id: "<id>", status: "todo" })
-mcp__tab-for-projects__list_tasks({ project_id: "<id>", group_key: "core" })
-mcp__tab-for-projects__list_tasks({ project_id: "<id>", category: "bugfix" })
-
-# Create project
 mcp__tab-for-projects__create_project({ items: [{ title, goal, requirements, design }] })
-
-# Update project
 mcp__tab-for-projects__update_project({ items: [{ id, goal, requirements, design }] })
 
-# Create tasks (ALL fields required)
+# Tasks (ALL fields required at creation)
+mcp__tab-for-projects__list_tasks({ project_id: "<id>" })
+mcp__tab-for-projects__list_tasks({ project_id: "<id>", status: "todo" })
+mcp__tab-for-projects__list_tasks({ project_id: "<id>", group_key: "core" })
 mcp__tab-for-projects__create_task({
   items: [{
     project_id, title, description, implementation,
     acceptance_criteria, category, effort, impact, group_key
   }]
 })
-
-# Update task status/details
 mcp__tab-for-projects__update_task({
   items: [{ id, project_id, status, implementation, acceptance_criteria }]
 })
 
 # Documents (Knowledge Base)
-mcp__tab-for-projects__list_documents()                              # all documents
-mcp__tab-for-projects__list_documents({ tag: "architecture" })       # filter by tag
-mcp__tab-for-projects__list_documents({ project_id: "<id>" })        # attached to project
-mcp__tab-for-projects__get_document({ id: "<doc_id>" })              # full content
+mcp__tab-for-projects__list_documents({ project_id: "<id>" })
+mcp__tab-for-projects__get_document({ id: "<doc_id>" })
+mcp__tab-for-projects__create_document({ items: [{ title, content, tags: ["tag"] }] })
+mcp__tab-for-projects__update_document({ items: [{ id, content, tags }] })
 
-# Create document
-mcp__tab-for-projects__create_document({
-  items: [{ title, content, tags: ["integration", "architecture"] }]
-})
-
-# Update document
-mcp__tab-for-projects__update_document({
-  items: [{ id, content, tags }]
-})
-
-# Attach/detach documents to project
+# Attach/detach documents
 mcp__tab-for-projects__update_project({
   items: [{ id: "<pid>", attach_documents: ["<doc_id>"] }]
 })
-mcp__tab-for-projects__update_project({
-  items: [{ id: "<pid>", detach_documents: ["<doc_id>"] }]
-})
 ```
-
-### Document tags
-| Category | Tags |
-|----------|------|
-| **Domain** | `ui`, `data`, `integration`, `infra`, `domain` |
-| **Content** | `architecture`, `conventions`, `guide`, `reference`, `decision`, `troubleshooting` |
-| **Concern** | `security`, `performance`, `testing`, `accessibility` |
-
-### Task fields — ALL required before implementation
-- **title**: Imperative form ("Create pyproject.toml")
-- **description**: What needs to be done and why
-- **implementation**: Exact code, file paths, function signatures, steps
-- **acceptance_criteria**: Specific pass/fail checks
-- **plan**: (Optional) High-level approach if different from implementation
-- **status**: todo → in_progress → done (or archived)
-- **group_key**: Logical grouping, max 32 chars (e.g. "setup", "core", "testing", "review-findings", "verification-failures")
-- **effort**: trivial / low / medium / high / extreme
-- **impact**: trivial / low / medium / high / extreme
-- **category**: feature / bugfix / refactor / test / perf / infra / docs / security / design / chore
-
----
-
-## Superpowers Integration
-
-| Step | Skill | When |
-|------|-------|------|
-| Planning (new project) | **tab-brainstorming** | Design-heavy or ambiguous work |
-| Implementation | **subagent-driven-development** | Executing tasks in current session |
-| Implementation | **test-driven-development** | During implementation |
-| Code review | **code-review-excellence** | Mandatory before commit |
-| Pre-commit | **verification-before-completion** | Run checks, confirm passing |
-| Handoff | **finishing-a-development-branch** | Present options (never push) |
 
 ---
 
 ## References
 
-- **Tab brainstorming**: tab-brainstorming skill (idea → design → Tab project + tasks)
-- **Code review**: code-review-excellence skill
-- **Verification**: verify skill (for PlexTrac repos) or project-specific checks
+- **Tab brainstorming**: tab-brainstorming skill (idea --> design --> Tab project + tasks)
+- **Verification**: tab-verify skill (auto-detect project type, run checks, create bug tasks)

@@ -1,11 +1,11 @@
 {
   "name": "tab-workflow",
-  "version": "1.1.0",
-  "description": "Tab for Projects workflow — brainstorm ideas into designs, implement with sub-agents, verify code health, and collect feedback.",
+  "version": "2.0.0",
+  "description": "Tab for Projects workflow — brainstorm, refine, implement, verify, and review PRs with parallel specialist agents and multi-agent quality gates. All state persists to Tab for crash recovery.",
   "author": {
     "name": "Paul Parker",
     "email": "airete@gmail.com"
   },
   "repository": "https://github.com/paulCodes/marketplace",
-  "keywords": ["tab", "projects", "workflow", "brainstorming", "verification"]
+  "keywords": ["tab", "projects", "workflow", "brainstorming", "verification", "pr-review", "code-review", "quality-gate", "multi-agent"]
 }

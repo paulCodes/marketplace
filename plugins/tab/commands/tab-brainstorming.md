@@ -305,4 +305,4 @@ A browser-based companion for showing mockups, diagrams, and visual options duri
 - **Use the browser** for visual content — mockups, wireframes, layout comparisons, architecture diagrams
 - **Use the terminal** for text content — requirements questions, conceptual choices, tradeoff lists
 
-If they agree, use a browser-based HTML page to show mockups and diagrams alongside the terminal conversation.
+If they agree, read the detailed guide: `skills/brainstorming/visual-companion.md`

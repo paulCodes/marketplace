@@ -22,6 +22,16 @@ Run checks → Parse failures → Create Tab bug tasks → Dispatch fix agents �
                                                           └── re-fix ──┘
 ```
 
+## Verification staleness
+
+A verification result is stale the moment any file changes. Never trust a previous run after:
+- An implementation agent modified files
+- A fix agent applied changes
+- Test files were added or modified
+- Review findings were fixed
+
+When in doubt, re-run. Verification is cheap compared to a rollback.
+
 ## Step 1: Detect project and Tab context
 
 1. Identify the project type and verification commands:
@@ -161,23 +171,68 @@ mcp__tab-for-projects__create_document({
 
 Skip this for routine fixes (typos, missing imports, etc.). Only document patterns that would save time if encountered again.
 
+## Commit Gate Mode
+
+When invoked with `--commit-gate` or called from tab-work Step 5, run the FULL pre-commit checklist. This goes beyond lint/typecheck/tests to verify the entire workflow completed correctly.
+
+### The checklist
+
+```
+Commit Gate -- {project_title}
+
+Technical:
+- [ ] Lint passes on all changed files
+- [ ] Typecheck passes
+- [ ] Tests pass (unit + integration if applicable)
+- [ ] No verification-failures tasks remain open
+
+Workflow:
+- [ ] Quality gate ran (review agents were dispatched)
+- [ ] All review-findings tasks are done or deferred
+- [ ] All qa-findings tasks are done or deferred
+- [ ] All implementation tasks marked done in Tab
+- [ ] No unaddressed [GOVERNANCE] items
+
+Staleness:
+- [ ] Verification ran after the most recent code change
+```
+
+### How it checks workflow items
+
+Query Tab for each workflow gate:
+
+```
+# Unresolved verification failures
+mcp__tab-for-projects__list_tasks({ project_id: "<pid>", group_key: "verification-failures", status: "todo" })
+
+# Unresolved review findings
+mcp__tab-for-projects__list_tasks({ project_id: "<pid>", group_key: "review-findings", status: "todo" })
+
+# Unresolved QA findings
+mcp__tab-for-projects__list_tasks({ project_id: "<pid>", group_key: "qa-findings", status: "todo" })
+
+# Tasks still in progress
+mcp__tab-for-projects__list_tasks({ project_id: "<pid>", status: "in_progress" })
+```
+
+### Presenting the checklist
+
+Show the full checklist with pass/fail for each item. If any item fails:
+- Technical failures: offer to fix (standard verify flow)
+- Workflow failures: tell the user what's missing and how to resolve it
+- Staleness failures: offer to re-run verification
+
+**The commit gate MUST pass before committing.** If the user overrides, note it in the Session Progress Log as an explicit override.
+
 ## Integration with tab-work
 
-The tab-work skill can invoke tab-verify at these points:
-- After 4a (implementation) — verify implementation
-- After 4b (tests) — verify tests pass
-- After 4d (review fixes) — verify fixes don't break anything
-- Before Step 5 (commit) — final verification gate
+tab-work invokes tab-verify at these points:
+- After Step 4a (implementation) -- verify implementation compiles and passes
+- After Step 4b (tests) -- verify new tests pass
+- After Step 4d (review fixes) -- verify fixes don't introduce regressions
+- **Step 5 (commit)** -- invoke with `--commit-gate` for the full pre-commit checklist
 
-The commit gate in tab-work checks:
-```
-mcp__tab-for-projects__list_tasks({
-  project_id: "<pid>",
-  group_key: "verification-failures",
-  status: "todo"
-})
-```
-Must be empty to proceed.
+When called without `--commit-gate`, tab-verify runs technical checks only (lint, typecheck, tests). The commit gate adds workflow checks (review findings, QA findings, task statuses).
 
 ## Standalone usage
 
@@ -189,6 +244,7 @@ When invoked standalone (not part of tab-work):
 
 ```
 /tab-verify                    # run all checks
+/tab-verify --commit-gate      # full pre-commit checklist (technical + workflow)
 /tab-verify --lint-only        # just lint
 /tab-verify --tests-only       # just tests
 /tab-verify --no-fix           # report only, don't dispatch fix agents
