@@ -68,7 +68,6 @@ Check whether any of these files exist in `~/.claude/commands/`:
 - `tab-brainstorming.md`
 - `tab-refinement.md`
 - `tab-verify.md`
-- `tab-pr-review.md`
 - `tab-feedback.md`
 
 Also check `~/.claude/agents/` for:
