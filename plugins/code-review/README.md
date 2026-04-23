@@ -56,9 +56,15 @@ Comments read like a teammate wrote them, not a bot.
 /code-review:review #3                 Review PR #3 from dashboard
 ```
 
-## Optional Tab Integration
+## Integrations
 
-If you also have the tab-workflow plugin installed and a Tab MCP server running, the Acceptance QA agent will verify code against your Tab project's acceptance criteria. The plugin works fully without Tab; this just adds an extra layer of verification when project context is available.
+The review pipeline auto-detects available integrations. No configuration needed.
+
+- **GitHub** (always available) -- PR metadata, diffs, comments, review posting via `gh` CLI
+- **Tab for Projects** (optional) -- if a Tab MCP server is running, verifies code against project acceptance criteria
+- **Jira** (optional) -- if Jira MCP tools are configured, pulls ticket context and acceptance criteria
+
+The more context available, the stronger the Acceptance QA agent's verification. But the core review works with just GitHub.
 
 ## Credits
 

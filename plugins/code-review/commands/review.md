@@ -79,6 +79,7 @@ Run all of these in parallel:
 - Fetch conversation comments via `gh api repos/{owner}/{repo}/issues/{pr_number}/comments`
   - **Two APIs needed.** Inline comments and conversation comments are separate. Most human feedback lives in conversation comments. Skipping the second call means missing context already discussed.
 - **Tab project lookup (optional):** If the Tab for Projects MCP server is available, search `mcp__tab-for-projects__list_projects()` for a project matching the PR title, branch name, or description keywords. If found, load the project's tasks (`list_tasks({ project_id, status: "done" })` and `list_tasks({ project_id, status: "in_progress" })`) to get acceptance criteria. Pass these to the Acceptance QA agent in Step 3. If Tab is not available, skip this step.
+- **Jira ticket lookup (optional):** If Jira MCP tools are available, extract a ticket key from the PR title or branch name (e.g., `IO-2097` from `IO-2097-fix-login` or `IO-2097: Fix login`). If found, fetch the ticket summary, description, and acceptance criteria. Pass to the Acceptance QA agent in Step 3.
 
 After metadata returns (provides the branch name), checkout the PR branch:
 ```bash
@@ -104,7 +105,7 @@ Launch 5-7 agents in parallel. Each receives the **full diff inlined in its prom
 
 1. **Edge Case QA** -- boundary conditions, null handling, race conditions, async edge cases, error paths. Thinks like a breaker.
 
-2. **Acceptance QA** (HIGHEST PRIORITY) -- verify PR description claims match actual code. Trace data flow. Check for `.map()` stale state bugs, `Promise.all()` over shared state, upsert logic that drops fields, tests that only use 1 item per key. Check test coverage of real data shapes. When Tab project context is available, verify code against Tab task acceptance_criteria (not just PR claims).
+2. **Acceptance QA** (HIGHEST PRIORITY) -- verify PR description claims match actual code. Trace data flow. Check for `.map()` stale state bugs, `Promise.all()` over shared state, upsert logic that drops fields, tests that only use 1 item per key. Check test coverage of real data shapes. When external context is available (Tab project acceptance criteria, Jira ticket criteria, or both), verify code against those criteria, not just PR claims.
 
 3. **Researcher** -- git blame on modified sections, prior PRs that touched these files, history patterns, TODO/FIXME that should have been addressed. Uses git history, not just the diff.
 
@@ -377,14 +378,19 @@ Most backports should be "quick diff" to verify the cherry-pick is clean and no 
 
 ---
 
-## Tab Integration (Optional)
+## Integrations
 
-This command does NOT require Tab for Projects to run. It operates fully independently.
+The review pipeline auto-detects available integrations. No configuration needed.
 
-However, if a Tab MCP server is available and a project exists for the work being reviewed:
-- Check for attached KB documents that provide context about the codebase area
-- Note any Tab tasks related to the PR's changes
-- After posting a review, optionally create a Tab task to track follow-up items identified during review
+| Integration | Detection | What it adds to reviews |
+|-------------|-----------|------------------------|
+| **GitHub** | Always available (uses `gh` CLI) | PR metadata, diffs, comments, review posting |
+| **Tab for Projects** | `mcp__tab-for-projects__list_projects` responds | Acceptance criteria from matching Tab project tasks |
+| **Jira** | Jira MCP tools available (e.g., `mcp__jira__get_issue`) | Ticket summary, description, acceptance criteria, bug repro steps |
+
+When multiple integrations are available, the Acceptance QA agent receives context from all of them. The more context it has, the stronger its verification.
+
+If none of the optional integrations are available, the review still works. The Acceptance QA agent verifies PR description claims against the actual code.
 
 ---
 
