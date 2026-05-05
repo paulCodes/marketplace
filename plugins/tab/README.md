@@ -174,8 +174,8 @@ The workflows also spawn purpose-built agents at runtime: classifier, research, 
 ### Via Claude Code marketplace (recommended)
 
 ```
-/plugin marketplace add paulCodes/marketplace
-/plugin install tab-workflow@paulCodes-marketplace
+/plugin marketplace add ironmoose/marketplace
+/plugin install tab-workflow@ironmoose-marketplace
 ```
 
 Then run `/tab-workflow:setup` to check prerequisites, install rules, and verify your configuration.
@@ -194,7 +194,7 @@ cp plugins/tab/rules/*.md ~/.claude/rules/
 ### Manual install
 
 ```bash
-git clone git@github.com:paulCodes/marketplace.git ~/workspaces/marketplace
+git clone git@github.com:ironmoose/marketplace.git ~/workspaces/marketplace
 
 # Copy commands
 cp ~/workspaces/marketplace/plugins/tab/commands/*.md ~/.claude/commands/

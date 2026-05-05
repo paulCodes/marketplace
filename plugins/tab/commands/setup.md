@@ -159,8 +159,8 @@ acceptance criteria.
 Install it? (yes/no)
 ```
 
-- If yes: print "Run `/plugin install pr-review@paulCodes-marketplace` to install."
-- If no: print "Skipping. You can install it later with `/plugin install pr-review@paulCodes-marketplace`."
+- If yes: print "Run `/plugin install pr-review@ironmoose-marketplace` to install."
+- If no: print "Skipping. You can install it later with `/plugin install pr-review@ironmoose-marketplace`."
 
 Move to Step 6.
 
